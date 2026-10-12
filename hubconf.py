@@ -60,6 +60,15 @@ def _load_state_dict(encoder, model_type=None):
                 patch = _patch
             else:
                 raise ValueError(f"Unknown encoder {model_type} {encoder}")
+        elif model_type == "ultimate_dav2":
+            if encoder == "v2_vits":
+                file_name = "ultimate_dav2_vits_INet_quality.safetensors"
+            elif encoder == "v2_vitb":
+                file_name = "ultimate_dav2_vitB_INet_quality.safetensors"
+            elif encoder == "v2_vits_ul":
+                file_name = "ultimate_dav2_vits_INet_UL.safetensors"
+            else:
+                raise ValueError(f"Unknown encoder {model_type} {encoder}")
         else:
             raise ValueError(f"Unknown encoder {encoder}")
 
@@ -109,6 +118,18 @@ def DistillAnyDepth(encoder, localhub=True):
 
     depth_anything = DPT_DINOv2(encoder=encoder, localhub=localhub)
     depth_anything.load_state_dict(_load_state_dict(encoder, model_type="distill_any_depth"), strict=True)
+
+    return depth_anything
+
+
+def UltimateDAV2(encoder, localhub=True):
+    """ https://github.com/nagadomi/nunif/discussions/727
+    """
+    from depth_anything.dpt import DPT_DINOv2
+    assert encoder in {"v2_vits", "v2_vitb", "v2_vits_ul"}
+
+    depth_anything = DPT_DINOv2(encoder=encoder, localhub=localhub)
+    depth_anything.load_state_dict(_load_state_dict(encoder, model_type="ultimate_dav2"), strict=True)
 
     return depth_anything
 

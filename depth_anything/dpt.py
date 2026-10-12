@@ -145,22 +145,29 @@ _SETTINGS = {
     "vitb": [128, [96, 192, 384, 768], 4],
     "v2_vitl": [256, [256, 512, 1024, 1024], [4, 11, 17, 23]],
     "vitl": [256, [256, 512, 1024, 1024], 4],
+    "v2_vits_ul": [64, [48, 96, 192, 384], [2, 5, 8, 9]],
 }
 
 class DPT_DINOv2(nn.Module):
     def __init__(self, encoder='vitl',
                  use_bn=False, use_clstoken=False, localhub=True,
-                 metric_depth=False, max_depth=20.0,
+                 metric_depth=False, max_depth=20.0, drop_blocks=None,
 ):
         super(DPT_DINOv2, self).__init__()
 
-        assert encoder in ["vits", "vitb", "vitl", "v2_vits", "v2_vitb", "v2_vitl"]
+        assert encoder in ["vits", "vitb", "vitl", "v2_vits", "v2_vitb", "v2_vitl", "v2_vits_ul"]
 
         features, out_channels, self.intermediate_layer_idx = _SETTINGS[encoder]
         self.metric_depth = metric_depth
         self.max_depth = max_depth
         self.encoder = encoder
-        dino_encoder = encoder[3:] if encoder.startswith("v2_") else encoder
+        if encoder == "v2_vits_ul":
+            dino_encoder = "vits"
+            drop_blocks = drop_blocks or [9, 10]
+        elif encoder.startswith("v2_"):
+            dino_encoder = encoder[3:]
+        else:
+            dino_encoder = encoder
         # in case the Internet connection is not stable, please load the DINOv2 locally
         if localhub:
             dinov2_path = os.path.join(os.path.dirname(__file__), "..",
@@ -168,7 +175,12 @@ class DPT_DINOv2(nn.Module):
             self.pretrained = torch.hub.load(dinov2_path, 'dinov2_{:}14'.format(dino_encoder), source='local', pretrained=False)
         else:
             self.pretrained = torch.hub.load('facebookresearch/dinov2', 'dinov2_{:}14'.format(dino_encoder))
-        
+
+        if drop_blocks is not None:
+            kept = [k for k in range(len(self.pretrained.blocks)) if k not in drop_blocks]
+            blocks = list(self.pretrained.blocks)
+            self.pretrained.blocks = nn.ModuleList([blocks[k] for k in kept])
+
         self.depth_head = DPTHead(1, self.pretrained.embed_dim, features, use_bn,
                                   out_channels=out_channels, use_clstoken=use_clstoken, metric_depth=metric_depth)
 
